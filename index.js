@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { authMiddleware } from './Middlewares/authMiddleWares.js'
 
-const allowedOrigins = "http://127.0.0.1:5500/"
+const allowedOrigins = "https://thamizh51.github.io/Techie-Site/"
 const app = express()
 
 app.use(cors(allowedOrigins))
