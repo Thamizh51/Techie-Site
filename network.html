@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Network Grid</title>
+    
+    <!-- Same Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050510;
+            --glass-bg: rgba(10, 15, 30, 0.75);
+            --glass-border: rgba(0, 243, 255, 0.15);
+            --text-main: #e0e0e0;
+            --text-muted: #8b9bb4;
+            --success: #05ffa1;
+            --warning: #ffe600;
+            --error: #ff2a6d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden; /* Main scroll handled in content area */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Background --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+        /* --- Layout --- */
+        .app-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Nav (Reuse) --- */
+        .nav-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            background: rgba(5, 5, 16, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-logo span { color: var(--primary); }
+
+        .nav-links { display: flex; gap: 30px; }
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            position: relative;
+            cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary);
+            text-shadow: 0 0 8px var(--primary);
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -24px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 -2px 10px var(--primary);
+        }
+
+        /* --- Main Content Area --- */
+        .main-content {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* --- Network Visualization Container --- */
+        .vis-container {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 20px;
+            height: 400px;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            position: relative;
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 20px; height: 20px;
+            border-top: 2px solid var(--primary);
+            border-left: 2px solid var(--primary);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+        }
+
+        /* --- Topology Map Canvas --- */
+        #network-map-container {
+            flex: 1;
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        #network-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Live Server List --- */
+        .server-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        .server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.03);
+            padding: 10px;
+            border-left: 3px solid var(--text-muted);
+            transition: all 0.2s;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .server-item:hover {
+            background: rgba(0, 243, 255, 0.05);
+            padding-left: 15px;
+        }
+
+        .server-item.online { border-left-color: var(--success); }
+        .server-item.warning { border-left-color: var(--warning); }
+        .server-item.offline { border-left-color: var(--error); }
+
+        .server-info div:first-child { color: #fff; font-weight: bold; }
+        .server-info div:last-child { color: var(--text-muted); font-size: 0.75rem; }
+        
+        .server-load { text-align: right; }
+
+        /* --- Data Table Section --- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 15px;
+            color: var(--primary);
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: normal;
+        }
+
+        .data-table td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-main);
+        }
+
+        .data-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+            color: #fff;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        /* --- Action Buttons --- */
+        .btn-small {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            transition: 0.2s;
+        }
+        .btn-small:hover {
+            background: var(--primary);
+            color: #000;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .vis-container { grid-template-columns: 1fr; height: auto; }
+            #network-map-container { height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <div class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/>
+                </svg>
+                NEXUS<span>//NET</span>
+            </div>
+            <div class="nav-links">
+                <a href="home.html" class="nav-link">Dashboard</a>
+                <a href="#" class="nav-link active">Network</a>
+                <a href="security.html" class="nav-link">Security</a>
+                <a href="datastream.html" class="nav-link">Data Stream</a>
+            </div>
+            <div class="user-profile" title="Unit 734">
+                <div style="text-align: right; font-size: 0.8rem;">
+                    <div style="font-family: 'Orbitron'; color: #fff;" id="user">UNIT 734</div>
+                    <div style="color: var(--success); font-family: 'Share Tech Mono';">ONLINE</div>
+                </div>
+                <div class="avatar"></div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Top Section: Visualizer + Quick List -->
+            <section class="vis-container">
+                <!-- Interactive Network Map -->
+                <div class="card">
+                    <div class="card-title">
+                        Global Topology
+                        <span style="font-size: 0.7rem; opacity: 0.7;">LIVE TRAFFIC</span>
+                    </div>
+                    <div id="network-map-container">
+                        <canvas id="network-canvas"></canvas>
+                        <div style="position: absolute; bottom: 10px; left: 10px; font-family: 'Share Tech Mono'; color: var(--primary); font-size: 0.7rem; pointer-events: none;">
+                            NODES: <span id="node-count">0</span> | PACKETS: <span id="packet-count">0</span>/s
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vertical Server List -->
+                <div class="card">
+                    <div class="card-title">Active Nodes</div>
+                    <div class="server-list-container" id="server-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Section: Detailed Data Table -->
+            <section class="card">
+                <div class="card-title">
+                    Connection Registry
+                    <button class="btn-small" onclick="refreshTable()">REFRESH_DATA</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>SOURCE ID</th>
+                            <th>DESTINATION</th>
+                            <th>PROTOCOL</th>
+                            <th>LATENCY</th>
+                            <th>BANDWIDTH</th>
+                            <th>STATUS</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="connection-table">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        /* --- 1. Shared Background Grid Animation --- */
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let width, height;
+        const gridSpeed = 0.5;
+        let offset = 0;
+        const bgParticles = [];
+
+        function resizeBg() {
+            width = bgCanvas.width = window.innerWidth;
+            height = bgCanvas.height = window.innerHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 1;
+                this.speedY = Math.random() * -1 - 0.2;
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.9 ? '#bc13fe' : '#00f3ff';
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y < 0) this.reset();
+            }
+            draw() {
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fillStyle = this.color;
+                bgCtx.globalAlpha = this.opacity;
+                bgCtx.fill();
+                bgCtx.globalAlpha = 1;
+            }
+        }
+        for(let i=0; i<70; i++) bgParticles.push(new Particle());
+
+        function drawGrid() {
+            const horizon = height * 0.4;
+            bgCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+            bgCtx.lineWidth = 1;
+            const centerX = width / 2;
+            bgCtx.beginPath();
+            offset = (offset + gridSpeed) % 40;
+            for (let y = horizon; y < height; y += (y - horizon) * 0.1 + 2) {
+                if(y + offset * 0.2 < height) {
+                    bgCtx.moveTo(0, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                    bgCtx.lineTo(width, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                }
+            }
+            for (let x = -width; x < width * 2; x += 80) {
+                 bgCtx.moveTo(centerX + (x - centerX) * 0.1, horizon);
+                 bgCtx.lineTo(x, height);
+            }
+            bgCtx.stroke();
+        }
+        function animateBg() {
+            bgCtx.fillStyle = '#050510';
+            bgCtx.fillRect(0, 0, width, height);
+            drawGrid();
+            bgParticles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateBg);
+        }
+        window.addEventListener('resize', resizeBg);
+        resizeBg();
+        animateBg();
+        let email = localStorage.getItem("email")
+        document.getElementById('user').textContent = email
+
+        /* --- 2. Network Topology Map Animation --- */
+        const netCanvas = document.getElementById('network-canvas');
+        const netCtx = netCanvas.getContext('2d');
+        const netContainer = document.getElementById('network-map-container');
+        let netW, netH;
+        
+        // Configuration
+        const nodeCount = 40;
+        const connectDistance = 120;
+        const nodes = [];
+        const packets = [];
+
+        class Node {
+            constructor() {
+                this.x = Math.random() * netW;
+                this.y = Math.random() * netH;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.size = Math.random() * 2 + 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if(this.x < 0 || this.x > netW) this.vx *= -1;
+                if(this.y < 0 || this.y > netH) this.vy *= -1;
+            }
+            draw() {
+                netCtx.beginPath();
+                netCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                netCtx.fillStyle = '#00f3ff';
+                netCtx.shadowBlur = 10;
+                netCtx.shadowColor = '#00f3ff';
+                netCtx.fill();
+                netCtx.shadowBlur = 0;
+            }
+        }
+
+        class Packet {
+            constructor(n1, n2) {
+                this.start = n1;
+                this.end = n2;
+                this.progress = 0;
+                this.speed = 0.02 + Math.random() * 0.03;
+                this.dead = false;
+            }
+            update() {
+                this.progress += this.speed;
+                if(this.progress >= 1) this.dead = true;
+            }
+            draw() {
+                const x = this.start.x + (this.end.x - this.start.x) * this.progress;
+                const y = this.start.y + (this.end.y - this.start.y) * this.progress;
+                
+                netCtx.beginPath();
+                netCtx.arc(x, y, 1.5, 0, Math.PI * 2);
+                netCtx.fillStyle = '#fff';
+                netCtx.shadowBlur = 5;
+                netCtx.shadowColor = '#fff';
+                netCtx.fill();
+                netCtx.shadowBlur = 0;
+            }
+        }
+
+        function resizeNet() {
+            netW = netCanvas.width = netContainer.offsetWidth;
+            netH = netCanvas.height = netContainer.offsetHeight;
+            nodes.length = 0;
+            for(let i=0; i<nodeCount; i++) nodes.push(new Node());
+            document.getElementById('node-count').innerText = nodeCount;
+        }
+
+        function animateNet() {
+            netCtx.clearRect(0, 0, netW, netH);
+            
+            // Update & Draw Nodes
+            nodes.forEach(node => {
+                node.update();
+                node.draw();
+            });
+
+            // Draw Connections & Spawn Packets
+            let activeConnections = 0;
+            for(let i=0; i<nodes.length; i++) {
+                for(let j=i+1; j<nodes.length; j++) {
+                    const dx = nodes[i].x - nodes[j].x;
+                    const dy = nodes[i].y - nodes[j].y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+
+                    if(dist < connectDistance) {
+                        activeConnections++;
+                        const opacity = 1 - (dist / connectDistance);
+                        
+                        netCtx.beginPath();
+                        netCtx.moveTo(nodes[i].x, nodes[i].y);
+                        netCtx.lineTo(nodes[j].x, nodes[j].y);
+                        netCtx.strokeStyle = `rgba(0, 243, 255, ${opacity * 0.5})`;
+                        netCtx.lineWidth = 0.5;
+                        netCtx.stroke();
+
+                        // Random packet spawn
+                        if(Math.random() < 0.01) {
+                            packets.push(new Packet(nodes[i], nodes[j]));
+                        }
+                    }
+                }
+            }
+            
+            // Update Packets
+            for(let i = packets.length - 1; i >= 0; i--) {
+                packets[i].update();
+                packets[i].draw();
+                if(packets[i].dead) packets.splice(i, 1);
+            }
+
+            // Update packet count display
+            document.getElementById('packet-count').innerText = packets.length;
+
+            requestAnimationFrame(animateNet);
+        }
+
+        // Init Map
+        window.addEventListener('resize', resizeNet);
+        // Small delay to ensure container size is calculated
+        setTimeout(() => {
+            resizeNet();
+            animateNet();
+        }, 100);
+
+
+        /* --- 3. Dynamic Data Population --- */
+
+        // Server List Data
+        const serverData = [
+            { id: "SRV-ALPHA", ip: "192.168.1.10", load: 45, status: "online" },
+            { id: "SRV-BETA", ip: "192.168.1.15", load: 12, status: "online" },
+            { id: "SRV-GAMMA", ip: "10.0.0.5", load: 89, status: "warning" },
+            { id: "SRV-DELTA", ip: "10.0.0.8", load: 0, status: "offline" },
+            { id: "DB-SHARD-01", ip: "172.16.0.2", load: 67, status: "online" },
+            { id: "DB-SHARD-02", ip: "172.16.0.3", load: 55, status: "online" },
+            { id: "PROXY-NODE", ip: "8.8.8.8", load: 23, status: "online" }
+        ];
+
+        const listContainer = document.getElementById('server-list');
+        const tableBody = document.getElementById('connection-table');
+
+        function renderServerList() {
+            listContainer.innerHTML = '';
+            serverData.forEach(srv => {
+                const div = document.createElement('div');
+                div.className = `server-item ${srv.status}`;
+                div.innerHTML = `
+                    <div class="server-info">
+                        <div>${srv.id}</div>
+                        <div>${srv.ip}</div>
+                    </div>
+                    <div class="server-load">
+                        ${srv.status === 'offline' ? 'OFF' : srv.load + '%'}
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function renderTable() {
+            tableBody.innerHTML = '';
+            const protocols = ['HTTP/S', 'SSH', 'FTP', 'TCP', 'UDP'];
+            const statuses = ['online', 'online', 'online', 'warning'];
+            
+            for(let i=0; i<6; i++) {
+                const id = Math.floor(Math.random() * 9000) + 1000;
+                const dest = `NODE-${Math.floor(Math.random() * 99)}`;
+                const proto = protocols[Math.floor(Math.random() * protocols.length)];
+                const lat = Math.floor(Math.random() * 150) + 10 + 'ms';
+                const bw = Math.floor(Math.random() * 500) + ' MB/s';
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                
+                let statusColor = status === 'online' ? 'var(--success)' : 'var(--warning)';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${id}</td>
+                    <td>${dest}</td>
+                    <td>${proto}</td>
+                    <td>${lat}</td>
+                    <td>${bw}</td>
+                    <td><span class="status-dot" style="color: ${statusColor}"></span>${status.toUpperCase()}</td>
+                    <td><button class="btn-small">TRACE</button></td>
+                `;
+                tableBody.appendChild(tr);
+            }
+        }
+
+        function refreshTable() {
+            // Visual feedback
+            tableBody.style.opacity = 0.5;
+            setTimeout(() => {
+                renderTable();
+                tableBody.style.opacity = 1;
+                // Randomly update a server status in the side list
+                const randIdx = Math.floor(Math.random() * serverData.length);
+                serverData[randIdx].load = Math.floor(Math.random() * 100);
+                if(serverData[randIdx].load > 80) serverData[randIdx].status = 'warning';
+                else if (serverData[randIdx].status === 'offline') serverData[randIdx].load = 0;
+                else serverData[randIdx].status = 'online';
+                
+                renderServerList();
+            }, 300);
+        }
+
+        // Init Data
+        renderServerList();
+        renderTable();
+
+        // Simulate live updates automatically
+        setInterval(() => {
+            const randIdx = Math.floor(Math.random() * serverData.length);
+            serverData[randIdx].load = Math.min(100, Math.max(0, serverData[randIdx].load + (Math.random() > 0.5 ? 5 : -5)));
+            renderServerList();
+        }, 2000);
+
+    </script>
+</body>
+</html>

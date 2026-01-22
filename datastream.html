@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Data Stream</title>
+    
+    <!-- Same Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --matrix-green: #0aff00; /* New accent for data */
+            --bg-dark: #050510;
+            --glass-bg: rgba(10, 15, 30, 0.75);
+            --glass-border: rgba(0, 243, 255, 0.15);
+            --text-main: #e0e0e0;
+            --text-muted: #8b9bb4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Scanline Overlay for CRT effect --- */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.3;
+        }
+
+        /* --- Background --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+        .app-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Nav --- */
+        .nav-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            background: rgba(5, 5, 16, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-logo span { color: var(--matrix-green); }
+
+        .nav-links { display: flex; gap: 30px; }
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            position: relative;
+            cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--matrix-green);
+            text-shadow: 0 0 8px var(--matrix-green);
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -24px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--matrix-green);
+            box-shadow: 0 -2px 10px var(--matrix-green);
+        }
+
+        /* --- Main Layout --- */
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            gap: 20px;
+            padding: 20px 40px 40px 40px;
+            overflow: hidden;
+        }
+
+        /* --- Shared Card Styles --- */
+        .panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-header {
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--glass-border);
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+        }
+
+        /* --- Left: File Browser --- */
+        .file-tree {
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .file-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            border-left: 2px solid transparent;
+        }
+        .file-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+        }
+        .file-item.active {
+            background: rgba(10, 255, 0, 0.1);
+            color: var(--matrix-green);
+            border-left-color: var(--matrix-green);
+        }
+        .file-icon { margin-right: 10px; font-size: 1.1rem; }
+        .folder { color: var(--secondary); }
+
+        /* --- Center: Hex Stream --- */
+        .stream-panel {
+            position: relative;
+            border: 1px solid var(--matrix-green);
+            box-shadow: 0 0 20px rgba(10, 255, 0, 0.1);
+        }
+
+        #hex-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .stream-overlay {
+            position: absolute;
+            top: 20px; right: 20px;
+            text-align: right;
+            pointer-events: none;
+        }
+        .stream-stat {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--matrix-green);
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px var(--matrix-green);
+        }
+        .stream-sub {
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        /* --- Right: Data Grid & Transfer --- */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            padding: 15px;
+            height: 200px;
+        }
+
+        .pixel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            transition: background 0.1s;
+        }
+        .pixel.active {
+            background: var(--primary);
+            box-shadow: 0 0 5px var(--primary);
+        }
+        .pixel.hot {
+            background: var(--matrix-green);
+            box-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        .transfer-list {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .transfer-item {
+            margin-bottom: 15px;
+        }
+        .t-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+        .t-bar-bg {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+        .t-bar-fill {
+            height: 100%;
+            background: var(--secondary);
+            width: 0%;
+            border-radius: 2px;
+            box-shadow: 0 0 5px var(--secondary);
+            transition: width 0.2s linear;
+        }
+
+        /* --- Action Button --- */
+        .btn-action {
+            margin-top: 15px;
+            background: rgba(10, 255, 0, 0.1);
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            padding: 10px 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            transition: 0.3s;
+        }
+        .btn-action:hover {
+            background: var(--matrix-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--matrix-green);
+        }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 400px auto;
+                overflow-y: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CRT Scanline Effect -->
+    <div class="scanlines"></div>
+
+    <!-- Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- Nav -->
+        <nav class="nav-bar">
+            <div class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                NEXUS<span>//DATA</span>
+            </div>
+            <div class="nav-links">
+                <a href="home.html" class="nav-link">Dashboard</a>
+                <a href="network.html" class="nav-link">Network</a>
+                <a href="security.html" class="nav-link">Security</a>
+                <a href="#" class="nav-link active">Data Stream</a>
+            </div>
+            <div class="user-profile">
+                <div style="text-align: right; font-size: 0.8rem;">
+                    <div style="font-family: 'Orbitron'; color: #fff;" id="user">UNIT 734</div>
+                    <div style="color: var(--matrix-green); font-family: 'Share Tech Mono';">UPLOADED</div>
+                </div>
+                <div class="avatar" style="background: var(--matrix-green);"></div>
+            </div>
+        </nav>
+
+        <!-- Main Grid -->
+        <main class="main-content">
+            
+            <!-- Left Panel: File Browser -->
+            <aside class="panel">
+                <div class="panel-header">
+                    <span>Directory</span>
+                    <span>//ROOT</span>
+                </div>
+                <div class="file-tree" id="file-tree">
+                    <div class="file-item folder"><span class="file-icon">▶</span> SYSTEM_CORE</div>
+                    <div class="file-item"><span class="file-icon">─</span> kernel.bin</div>
+                    <div class="file-item"><span class="file-icon">─</span> boot_loader.cfg</div>
+                    <div class="file-item folder"><span class="file-icon">▶</span> USER_DATA</div>
+                    <div class="file-item active"><span class="file-icon">●</span> stream_buffer.hex</div>
+                    <div class="file-item"><span class="file-icon">─</span> encryption_keys.dat</div>
+                    <div class="file-item folder"><span class="file-icon">▶</span> LOGS</div>
+                    <div class="file-item"><span class="file-icon">─</span> access_2023.log</div>
+                    <div class="file-item"><span class="file-icon">─</span> error_dump.txt</div>
+                    <div class="file-item folder"><span class="file-icon">▶</span> ARCHIVE</div>
+                    <div class="file-item"><span class="file-icon">─</span> project_omega.zip</div>
+                </div>
+            </aside>
+
+            <!-- Center Panel: Hex Stream Visualizer -->
+            <section class="panel stream-panel">
+                <div class="stream-overlay">
+                    <div class="stream-stat" id="stream-speed">450 TB/s</div>
+                    <div class="stream-sub">Throughput Velocity</div>
+                </div>
+                <canvas id="hex-canvas"></canvas>
+            </section>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                
+                <!-- Data Grid Visualizer -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>Chunk Visualizer</span>
+                    </div>
+                    <div class="data-grid" id="pixel-grid">
+                        <!-- Pixels generated by JS -->
+                    </div>
+                    <button class="btn-action" onclick="triggerPurge()">PURGE CACHE</button>
+                </div>
+
+                <!-- Transfer Queue -->
+                <div class="panel" style="flex: 1;">
+                    <div class="panel-header">
+                        <span>Active Transfers</span>
+                    </div>
+                    <div class="transfer-list" id="transfer-list">
+                        <!-- Items generated by JS -->
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+
+        const email = localStorage.getItem('email')
+        document.getElementById('user').textContent = email
+        /* --- 1. Background Grid (Shared) --- */
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let width, height;
+        const gridSpeed = 0.5;
+        let offset = 0;
+        const bgParticles = [];
+
+        function resizeBg() {
+            width = bgCanvas.width = window.innerWidth;
+            height = bgCanvas.height = window.innerHeight;
+        }
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 1;
+                this.speedY = Math.random() * -1 - 0.2;
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.9 ? '#bc13fe' : '#0aff00'; // Purple or Green
+            }
+            update() { this.y += this.speedY; if (this.y < 0) this.reset(); }
+            draw() {
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fillStyle = this.color;
+                bgCtx.globalAlpha = this.opacity;
+                bgCtx.fill();
+                bgCtx.globalAlpha = 1;
+            }
+        }
+        for(let i=0; i<70; i++) bgParticles.push(new Particle());
+
+        function drawGrid() {
+            const horizon = height * 0.4;
+            bgCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+            bgCtx.lineWidth = 1;
+            const centerX = width / 2;
+            bgCtx.beginPath();
+            offset = (offset + gridSpeed) % 40;
+            for (let y = horizon; y < height; y += (y - horizon) * 0.1 + 2) {
+                if(y + offset * 0.2 < height) {
+                    bgCtx.moveTo(0, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                    bgCtx.lineTo(width, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                }
+            }
+            for (let x = -width; x < width * 2; x += 80) {
+                 bgCtx.moveTo(centerX + (x - centerX) * 0.1, horizon);
+                 bgCtx.lineTo(x, height);
+            }
+            bgCtx.stroke();
+        }
+        function animateBg() {
+            bgCtx.fillStyle = '#050510';
+            bgCtx.fillRect(0, 0, width, height);
+            drawGrid();
+            bgParticles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateBg);
+        }
+        window.addEventListener('resize', resizeBg);
+        resizeBg();
+        animateBg();
+
+
+        /* --- 2. Hex Stream Visualizer (The Matrix Effect) --- */
+        const hexCanvas = document.getElementById('hex-canvas');
+        const hexCtx = hexCanvas.getContext('2d');
+        const chars = "01010101ABCDEF0123456789";
+        let hexW, hexH;
+        const fontSize = 14;
+        let columns = [];
+        const drops = [];
+
+        function initHex() {
+            const container = document.querySelector('.stream-panel');
+            hexW = hexCanvas.width = container.offsetWidth;
+            hexH = hexCanvas.height = container.offsetHeight;
+            
+            const colCount = Math.floor(hexW / fontSize);
+            drops.length = 0;
+            for(let i = 0; i < colCount; i++) {
+                drops[i] = Math.random() * -100; // Start above screen at random heights
+            }
+        }
+
+        function drawHex() {
+            // Translucent black for trail effect
+            hexCtx.fillStyle = 'rgba(5, 5, 16, 0.1)'; 
+            hexCtx.fillRect(0, 0, hexW, hexH);
+
+            hexCtx.fillStyle = '#0aff00'; // Green text
+            hexCtx.font = fontSize + 'px monospace';
+
+            for(let i = 0; i < drops.length; i++) {
+                // Random character
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                
+                // x = column index * font size, y = drop value * font size
+                const x = i * fontSize;
+                const y = drops[i] * fontSize;
+
+                // Vary brightness based on Y for "head" of the stream effect
+                if (Math.random() > 0.95) {
+                    hexCtx.fillStyle = '#fff'; // White spark
+                } else {
+                    hexCtx.fillStyle = '#0aff00';
+                }
+
+                hexCtx.fillText(text, x, y);
+
+                // Move drop down
+                if(y > hexH && Math.random() > 0.975) {
+                    drops[i] = 0; // Reset to top
+                }
+                drops[i]++;
+            }
+            requestAnimationFrame(drawHex);
+        }
+
+        window.addEventListener('resize', initHex);
+        setTimeout(() => { initHex(); drawHex(); }, 100);
+
+
+        /* --- 3. Chunk Pixel Grid Animation --- */
+        const pixelGrid = document.getElementById('pixel-grid');
+        const pixelCount = 100;
+
+        // Create grid
+        for(let i=0; i<pixelCount; i++) {
+            const div = document.createElement('div');
+            div.className = 'pixel';
+            pixelGrid.appendChild(div);
+        }
+
+        function animateGrid() {
+            const pixels = document.querySelectorAll('.pixel');
+            // Randomly light up pixels
+            const idx = Math.floor(Math.random() * pixels.length);
+            const type = Math.random();
+            
+            // Remove old classes
+            pixels.forEach(p => {
+                if(Math.random() > 0.9) p.className = 'pixel'; // Decay
+            });
+
+            const p = pixels[idx];
+            p.className = type > 0.8 ? 'pixel hot' : 'pixel active';
+        }
+        setInterval(animateGrid, 50);
+
+
+        /* --- 4. Transfer Queue Logic --- */
+        const transferList = document.getElementById('transfer-list');
+        const files = ['omega_core', 'neural_net_v2', 'sector_7_map', 'user_auth_db'];
+
+        function createTransfer() {
+            const id = Math.floor(Math.random() * 10000);
+            const name = files[Math.floor(Math.random() * files.length)] + '.dat';
+            const size = Math.floor(Math.random() * 500) + ' MB';
+
+            const item = document.createElement('div');
+            item.className = 'transfer-item';
+            item.innerHTML = `
+                <div class="t-info">
+                    <span>${name}</span>
+                    <span>${size}</span>
+                </div>
+                <div class="t-bar-bg">
+                    <div class="t-bar-fill" id="bar-${id}"></div>
+                </div>
+            `;
+            transferList.prepend(item);
+
+            // Animate Bar
+            const bar = item.querySelector('.t-bar-fill');
+            let width = 0;
+            const interval = setInterval(() => {
+                width += Math.random() * 5;
+                if(width >= 100) {
+                    width = 100;
+                    clearInterval(interval);
+                    item.style.opacity = '0.5';
+                    // Remove after delay
+                    setTimeout(() => item.remove(), 1000);
+                }
+                bar.style.width = width + '%';
+            }, 100);
+        }
+
+        // Add new transfer every 2 seconds
+        setInterval(createTransfer, 2000);
+        // Add one immediately
+        createTransfer();
+
+        /* --- 5. Interaction --- */
+        function triggerPurge() {
+            const grid = document.getElementById('pixel-grid');
+            grid.style.transform = 'scale(0.95)';
+            grid.style.opacity = '0.5';
+            setTimeout(() => {
+                grid.style.transform = 'scale(1)';
+                grid.style.opacity = '1';
+                // Flash effect
+                const pixels = document.querySelectorAll('.pixel');
+                pixels.forEach(p => p.style.background = 'var(--matrix-green)');
+                setTimeout(() => pixels.forEach(p => p.style.background = ''), 200);
+            }, 200);
+        }
+
+        // Update Speedometer randomly
+        setInterval(() => {
+            const speed = 400 + Math.floor(Math.random() * 100);
+            document.getElementById('stream-speed').innerText = speed + " TB/s";
+        }, 800);
+
+    </script>
+</body>
+</html>

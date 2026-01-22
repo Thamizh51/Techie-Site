@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Command Center</title>
+    
+    <!-- Same Fonts for Consistency -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050510;
+            --glass-bg: rgba(10, 15, 30, 0.75);
+            --glass-border: rgba(0, 243, 255, 0.15);
+            --text-main: #e0e0e0;
+            --text-muted: #8b9bb4;
+            --success: #05ffa1;
+            --warning: #ffe600;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* --- Background Canvas --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* --- Scrollbar Styling --- */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        /* --- Layout Container --- */
+        .app-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Navigation --- */
+        .nav-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            background: rgba(5, 5, 16, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo span { color: var(--primary); }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary);
+            text-shadow: 0 0 8px var(--primary);
+        }
+
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -24px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 -2px 10px var(--primary);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .avatar {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        /* --- Header Section --- */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 20px;
+        }
+
+        .welcome-text h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .welcome-text p {
+            color: var(--text-muted);
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .status-badge {
+            background: rgba(5, 255, 161, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+            padding: 8px 16px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(5, 255, 161, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(5, 255, 161, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(5, 255, 161, 0); }
+        }
+
+        /* --- Dashboard Grid --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        /* --- Generic Card Style --- */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            position: relative;
+            backdrop-filter: blur(8px);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card::before {
+            /* Corner accent */
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 20px; height: 20px;
+            border-top: 2px solid var(--primary);
+            border-left: 2px solid var(--primary);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-color: rgba(0, 243, 255, 0.4);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary);
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- Stat Card Specifics --- */
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            font-family: 'Rajdhani', sans-serif;
+            line-height: 1;
+        }
+        .stat-sub {
+            color: var(--text-muted);
+            font-family: 'Share Tech Mono', monospace;
+            margin-top: 5px;
+        }
+
+        /* --- Progress Bars --- */
+        .progress-container {
+            margin-top: 20px;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .progress-bar-bg {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            border-radius: 3px;
+            box-shadow: 0 0 10px var(--primary);
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- Terminal Window --- */
+        .terminal-card {
+            grid-column: 1 / -1; /* Full width */
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-output {
+            flex: 1;
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--success);
+            overflow-y: auto;
+            border: 1px solid rgba(0,0,0,0.3);
+            border-radius: 2px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            opacity: 0.8;
+            border-left: 2px solid transparent;
+            padding-left: 5px;
+        }
+        .log-entry.warning { color: var(--warning); border-color: var(--warning); }
+        .log-entry.error { color: #ff2a6d; border-color: #ff2a6d; }
+        .log-entry span { opacity: 0.5; margin-right: 10px; }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: var(--success);
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* --- Button Styling --- */
+        .btn-action {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 10px 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 15px;
+        }
+
+        .btn-action:hover {
+            background: rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .nav-bar { padding: 0 20px; }
+            .main-content { padding: 20px; }
+            .page-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <div class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/>
+                </svg>
+                NEXUS<span>//CORE</span>
+            </div>
+            
+            <div class="nav-links">
+                <a href="#" class="nav-link active">Dashboard</a>
+                <a href="network.html" class="nav-link">Network</a>
+                <a href="security.html" class="nav-link">Security</a>
+                <a href="datastream.html" class="nav-link">Data Stream</a>
+            </div>
+
+            <div class="user-profile" title="Agent Status: Online">
+                <div style="text-align: right; font-size: 0.8rem;">
+                    <div style="font-family: 'Orbitron'; color: #fff;" id="user">UNIT 734</div>
+                    <div style="color: var(--success); font-family: 'Share Tech Mono';">ONLINE</div>
+                </div>
+                <div class="avatar"></div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <header class="page-header">
+                <div class="welcome-text">
+                    <h2>OVERVIEW</h2>
+                    <p>SYSTEM INTEGRITY: 100% // SECURE CONNECTION</p>
+                </div>
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    ALL SYSTEMS NOMINAL
+                </div>
+            </header>
+
+            <!-- Stats Grid -->
+            <section class="dashboard-grid">
+                
+                <!-- Card 1: Traffic -->
+                <div class="card">
+                    <div class="card-title">
+                        NETWORK TRAFFIC
+                        <svg width="18" height="18" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <div class="stat-value" id="traffic-val">842 TB</div>
+                    <div class="stat-sub">+12.5% from last cycle</div>
+                    <div class="progress-container">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: CPU Load -->
+                <div class="card">
+                    <div class="card-title">
+                        CORE LOAD
+                        <svg width="18" height="18" fill="none" stroke="var(--secondary)" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    </div>
+                    <div class="stat-value" id="cpu-val">34%</div>
+                    <div class="stat-sub">OPTIMAL TEMPERATURE</div>
+                    <div class="progress-container">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="cpu-bar" style="width: 34%; background: var(--secondary); box-shadow: 0 0 10px var(--secondary);"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Active Nodes -->
+                <div class="card">
+                    <div class="card-title">
+                        ACTIVE NODES
+                        <svg width="18" height="18" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    </div>
+                    <div class="stat-value">4,021</div>
+                    <div class="stat-sub">GLOBAL CLUSTER</div>
+                    <button class="btn-action" onclick="simulateScan()">INITIATE SCAN</button>
+                </div>
+
+                <!-- Card 4: Terminal (Full Width) -->
+                <div class="card terminal-card">
+                    <div class="card-title">
+                        SYSTEM LOGS
+                        <span style="font-size: 0.7rem; opacity: 0.7;">LIVE FEED</span>
+                    </div>
+                    <div class="terminal-output" id="terminal">
+                        <div class="log-entry"><span>08:42:01</span> Initializing Nexus Core interface...</div>
+                        <div class="log-entry"><span>08:42:02</span> Connection established via encrypted tunnel (AES-256).</div>
+                        <div class="log-entry"><span>08:42:05</span> Loading user modules... [OK]</div>
+                        <div class="log-entry"><span>08:42:06</span> Welcome back, Administrator.</div>
+                        <!-- JS will add more lines here -->
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. Background Canvas Animation (Exact copy of Login Page) ---
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const gridSpeed = 0.5;
+        let offset = 0;
+        const particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        const email = localStorage.getItem('email')
+        document.getElementById('user').textContent = email
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 1;
+                this.speedY = Math.random() * -1 - 0.2;
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.9 ? '#bc13fe' : '#00f3ff';
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y < 0) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.opacity;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        for(let i = 0; i < 70; i++) particles.push(new Particle());
+
+        function drawGrid() {
+            const horizon = height * 0.4;
+            const gridSpacing = 40;
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+            ctx.lineWidth = 1;
+            const centerX = width / 2;
+            
+            ctx.beginPath();
+            offset = (offset + gridSpeed) % gridSpacing;
+            
+            for (let y = horizon; y < height; y += (y - horizon) * 0.1 + 2) {
+                if(y + offset * 0.2 < height) {
+                   ctx.moveTo(0, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                   ctx.lineTo(width, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                }
+            }
+            for (let x = -width; x < width * 2; x += gridSpacing * 2) {
+                 ctx.moveTo(centerX + (x - centerX) * 0.1, horizon);
+                 ctx.lineTo(x, height);
+            }
+            ctx.stroke();
+
+            const gradient = ctx.createLinearGradient(0, horizon - 50, 0, horizon + 50);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(0.5, 'rgba(188, 19, 254, 0.2)'); 
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, horizon - 50, width, 100);
+        }
+
+        function animate() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, width, height);
+            drawGrid();
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+
+
+        // --- 2. Dashboard Live Logic ---
+
+        // Random Data Simulator
+        function updateStats() {
+            // Traffic
+            const trafficBase = 800;
+            const traffic = trafficBase + Math.floor(Math.random() * 100);
+            document.getElementById('traffic-val').innerText = `${traffic} TB`;
+
+            // CPU
+            const cpu = Math.floor(Math.random() * (45 - 25) + 25);
+            document.getElementById('cpu-val').innerText = `${cpu}%`;
+            document.getElementById('cpu-bar').style.width = `${cpu}%`;
+        }
+
+        setInterval(updateStats, 2000); // Update every 2 seconds
+
+        // Terminal Typewriter / Log Generator
+        const terminal = document.getElementById('terminal');
+        const logMessages = [
+            "Scanning network ports...",
+            "Packet tracer: 4ms to local host.",
+            "Encrypting data stream...",
+            "Node 884 response: OK.",
+            "Running diagnostic check...",
+            "Memory heap optimized.",
+            "New connection detected from IP 192.168.X.X",
+            "Syncing with cloud database...",
+            "Firewall rules updated.",
+            "Ping: 12ms."
+        ];
+
+        function addLog() {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const msg = logMessages[Math.floor(Math.random() * logMessages.length)];
+            
+            // Randomly decide log type (normal, warning, error)
+            const rand = Math.random();
+            let typeClass = "";
+            if (rand > 0.95) typeClass = "error";
+            else if (rand > 0.85) typeClass = "warning";
+
+            const div = document.createElement('div');
+            div.className = `log-entry ${typeClass}`;
+            div.innerHTML = `<span>${timeStr}</span> ${msg}`;
+            
+            terminal.appendChild(div);
+            
+            // Auto scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+
+            // Limit log size
+            if (terminal.children.length > 50) {
+                terminal.removeChild(terminal.firstChild);
+            }
+        }
+
+        // Add a log every 1.5 - 3.5 seconds
+        function loopLogs() {
+            const randomTime = Math.floor(Math.random() * (3500 - 1500) + 1500);
+            setTimeout(() => {
+                addLog();
+                loopLogs();
+            }, randomTime);
+        }
+        loopLogs();
+
+        // Scan Button Interaction
+        function simulateScan() {
+            const btn = document.querySelector('.btn-action');
+            const originalText = btn.innerText;
+            btn.innerText = "SCANNING...";
+            btn.style.background = "var(--primary)";
+            btn.style.color = "#000";
+            
+            // Flash logs
+            let count = 0;
+            const interval = setInterval(() => {
+                addLog();
+                count++;
+                if (count > 5) {
+                    clearInterval(interval);
+                    btn.innerText = "COMPLETE";
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.style.background = "transparent";
+                        btn.style.color = "var(--primary)";
+                    }, 1000);
+                }
+            }, 300);
+        }
+
+    </script>
+</body>
+</html>

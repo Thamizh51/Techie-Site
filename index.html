@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Secure Login</title>
+    
+    <!-- Google Fonts for that Techie Vibe -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+    <!-- Interactive Canvas Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Notification Container -->
+    <div id="toast-container"></div>
+
+    <main class="login-wrapper">
+        <section class="login-card">
+            <header class="card-header">
+                <!-- Tech SVG Logo -->
+                <svg class="logo-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/>
+                </svg>
+                <h1 class="glitch-text" data-text="SYSTEM_ACCESS">SYSTEM_ACCESS</h1>
+                <p class="subtitle">SECURE TERMINAL V.2.0.4</p>
+            </header>
+
+            <form id="loginForm" autocomplete="off">
+                <!-- Email Field -->
+                <div class="input-group">
+                    <input type="email" id="email" class="form-input" placeholder=" " required>
+                    <label for="email" class="input-label">AGENT_ID (EMAIL)</label>
+                </div>
+
+                <!-- Password Field -->
+                <div class="input-group">
+                    <input type="password" id="password" class="form-input" placeholder=" " required>
+                    <label for="password" class="input-label">ACCESS_CODE</label>
+                    <!-- Eye Icon SVG -->
+                    <div class="password-toggle" id="togglePassword">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="form-actions">
+                    <label class="remember-me">
+                        <input type="checkbox"> PERSIST_LINK
+                    </label>
+                    <a href="#" class="forgot-link">LOST_CODE?</a>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn-login" id="submitBtn">INITIALIZE_LINK</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+      document.getElementById('submitBtn').addEventListener('click', async (e) => {
+    e.preventDefault(); // stop page refresh if inside form
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const res = await fetch('http://localhost:3000/login', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if(data.success){
+          localStorage.setItem("email", email);
+          window.location.href = './home.html'
+        }
+    } catch (err) {
+        console.error("Error:", err);
+    }
+});
+
+        /**
+         * 1. Canvas Animation: Retro Grid with Particles
+         */
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        
+        // Grid settings
+        const gridSpeed = 0.5;
+        let offset = 0;
+        
+        // Particles
+        const particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 1;
+                this.speedY = Math.random() * -1 - 0.2; // Move up
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.9 ? '#bc13fe' : '#00f3ff'; // Purple or Cyan
+            }
+
+            update() {
+                this.y += this.speedY;
+                if (this.y < 0) this.reset();
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.opacity;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Initialize Particles
+        for(let i = 0; i < 70; i++) {
+            particles.push(new Particle());
+        }
+
+        function drawGrid() {
+            // Perspective grid logic (simplified synthwave style)
+            const horizon = height * 0.4; // Vanishing point Y
+            const gridSpacing = 40;
+            
+            // Vertical Lines (Perspective)
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+            ctx.lineWidth = 1;
+            
+            const centerX = width / 2;
+            
+            // Draw floor
+            ctx.beginPath();
+            // Moving horizontal lines
+            offset = (offset + gridSpeed) % gridSpacing;
+            
+            for (let y = horizon; y < height; y += (y - horizon) * 0.1 + 2) {
+                let finalY = y + offset * ((y - horizon) / height); 
+                // Parallax effect: lines move faster closer to bottom
+                if(finalY > height) finalY -= (height - horizon); // simplistic looping logic
+
+                // Draw horizontal
+                // Only draw if within bounds
+                if(y + offset * 0.2 < height) {
+                   ctx.moveTo(0, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                   ctx.lineTo(width, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                }
+            }
+            
+            // Draw vertical fanning lines
+            for (let x = -width; x < width * 2; x += gridSpacing * 2) {
+                 // Simple perspective projection
+                 ctx.moveTo(centerX + (x - centerX) * 0.1, horizon);
+                 ctx.lineTo(x, height);
+            }
+            ctx.stroke();
+
+            // Draw Horizon Glow
+            const gradient = ctx.createLinearGradient(0, horizon - 50, 0, horizon + 50);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(0.5, 'rgba(188, 19, 254, 0.2)'); // Purple glow
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, horizon - 50, width, 100);
+        }
+
+        function animate() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, width, height);
+
+            drawGrid();
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+
+
+        /**
+         * 2. UI Interaction Logic
+         */
+        
+        // Toast Notification System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // Icon based on type
+            const icon = type === 'success' ? '✓' : '⚠';
+            
+            toast.innerHTML = `
+                <span>[${icon}] ${message}</span>
+                <span style="cursor:pointer; margin-left:10px" onclick="this.parentElement.remove()">×</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('hide');
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                });
+            }, 3500);
+        }
+
+        // Password Visibility Toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function () {
+            // Toggle type
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle visual feedback (color)
+            this.style.color = type === 'text' ? 'var(--primary)' : 'var(--text-muted)';
+        });
+
+        // Form Validation & Submission Simulation
+        const form = document.getElementById('loginForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const emailInput = document.getElementById('email');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Basic Validation
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!email.includes('@')) {
+                showToast("INVALID AGENT_ID FORMAT", "error");
+                emailInput.focus();
+                return;
+            }
+
+            if (password.length < 6) {
+                showToast("ACCESS_CODE TOO SHORT (MIN 6)", "error");
+                passwordInput.focus();
+                return;
+            }
+
+            // Simulate Network Request
+            submitBtn.classList.add('loading');
+            submitBtn.innerText = "AUTHENTICATING..."; // Text changes, but CSS hides it to show spinner
+
+            setTimeout(() => {
+                submitBtn.classList.remove('loading');
+                submitBtn.innerText = "INITIALIZE_LINK";
+                
+                // Mock Success
+                showToast("ACCESS GRANTED. WELCOME BACK.", "success");
+                
+                // Optional: Reset form
+                // form.reset();
+            }, 2000);
+        });
+
+        // Add glitch effect interaction randomly
+        const title = document.querySelector('.glitch-text');
+        setInterval(() => {
+            if(Math.random() > 0.9) {
+                title.style.textShadow = "2px 0 var(--error), -2px 0 var(--primary)";
+                setTimeout(() => {
+                    title.style.textShadow = "none";
+                }, 100);
+            }
+        }, 2000);
+
+    </script>
+</body>
+</html>

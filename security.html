@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Security Protocols</title>
+    
+    <!-- Same Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050510;
+            --glass-bg: rgba(10, 15, 30, 0.75);
+            --glass-border: rgba(0, 243, 255, 0.15);
+            --text-main: #e0e0e0;
+            --text-muted: #8b9bb4;
+            --success: #05ffa1;
+            --warning: #ffe600;
+            --danger: #ff2a6d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Background --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+        .app-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Nav --- */
+        .nav-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            background: rgba(5, 5, 16, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-logo span { color: var(--primary); }
+
+        .nav-links { display: flex; gap: 30px; }
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            position: relative;
+            cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--danger); /* Red accent for security page */
+            text-shadow: 0 0 8px var(--danger);
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -24px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--danger);
+            box-shadow: 0 -2px 10px var(--danger);
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            position: relative;
+            backdrop-filter: blur(8px);
+        }
+        
+        /* Red corner accents for Security theme */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 20px; height: 20px;
+            border-top: 2px solid var(--danger);
+            border-left: 2px solid var(--danger);
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; right: -1px;
+            width: 20px; height: 20px;
+            border-bottom: 2px solid var(--danger);
+            border-right: 2px solid var(--danger);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--danger);
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- Top Section Grid --- */
+        .top-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            height: 300px;
+        }
+
+        /* --- Threat Level Meter --- */
+        .threat-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            position: relative;
+        }
+
+        .gauge-wrapper {
+            position: relative;
+            width: 200px;
+            height: 100px; /* Half circle */
+            overflow: hidden;
+        }
+
+        .gauge-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            border: 20px solid rgba(255, 255, 255, 0.1);
+            border-bottom-color: transparent;
+            border-left-color: transparent; /* Semicircle */
+            transform: rotate(-45deg); 
+            box-sizing: border-box;
+        }
+
+        .gauge-fill {
+            position: absolute;
+            top: 0; left: 0;
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            border: 20px solid transparent;
+            border-top-color: var(--success); /* Default Green */
+            border-right-color: transparent;
+            border-bottom-color: transparent;
+            border-left-color: transparent;
+            transform: rotate(-45deg);
+            transition: border-color 0.5s;
+            box-sizing: border-box;
+            z-index: 2;
+        }
+
+        .gauge-cover {
+            position: absolute;
+            top: 20px; left: 20px;
+            width: 160px; height: 160px;
+            background: var(--bg-dark);
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .gauge-center {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 4;
+        }
+
+        .threat-status {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            text-shadow: 0 0 10px var(--success);
+            transition: color 0.5s, text-shadow 0.5s;
+        }
+        .threat-sub {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* --- Biometric Scanner --- */
+        .bio-scanner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .fingerprint-container {
+            width: 120px;
+            height: 120px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .fingerprint-icon {
+            width: 80px;
+            height: 80px;
+            fill: var(--text-muted);
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            animation: scan 2s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* --- Middle Section Grid --- */
+        .mid-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+            height: 300px;
+        }
+
+        /* Intrusion Log */
+        .log-container {
+            overflow-y: auto;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .log-entry {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+        }
+        .log-entry:hover { background: rgba(255,255,255,0.02); }
+        .log-entry.blocked { color: var(--danger); border-left: 2px solid var(--danger); padding-left: 8px; }
+        .log-entry.safe { color: var(--success); }
+        .log-entry span.time { color: var(--text-muted); margin-right: 15px; }
+
+        /* Firewall Switches */
+        .switch-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .fw-switch {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .switch-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Custom Toggle Switch */
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+        }
+        input:checked + .slider {
+            background-color: var(--danger); /* Security Red */
+            box-shadow: 0 0 10px rgba(255, 42, 109, 0.5);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: #fff;
+        }
+
+        /* --- Bottom Section: Waveform --- */
+        .waveform-container {
+            height: 150px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        #wave-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .top-grid, .mid-grid { grid-template-columns: 1fr; height: auto; }
+            .gauge-wrapper, .bio-scanner { margin: 20px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- Nav -->
+        <nav class="nav-bar">
+            <div class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                NEXUS<span>//SEC</span>
+            </div>
+            <div class="nav-links">
+                <a href="home.html" class="nav-link">Dashboard</a>
+                <a href="network.html" class="nav-link">Network</a>
+                <a href="#" class="nav-link active">Security</a>
+                <a href="datastream.html" class="nav-link">Data Stream</a>
+            </div>
+            <div class="user-profile">
+                <div style="text-align: right; font-size: 0.8rem;">
+                    <div style="font-family: 'Orbitron'; color: #fff;" id="user">UNIT 734</div>
+                    <div style="color: var(--danger); font-family: 'Share Tech Mono';">CLEARANCE 5</div>
+                </div>
+                <div class="avatar" style="background: var(--danger);"></div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Top: Threat Meter & Biometrics -->
+            <section class="top-grid">
+                <!-- Threat Meter -->
+                <div class="card threat-container">
+                    <div class="card-title" style="width: 100%;">Threat Assessment</div>
+                    
+                    <div class="gauge-wrapper">
+                        <div class="gauge-bg"></div>
+                        <div class="gauge-fill" id="gauge-fill"></div>
+                        <div class="gauge-cover"></div>
+                        <div class="gauge-center">
+                            <div class="threat-status" id="threat-text">SECURE</div>
+                            <div class="threat-sub">LEVEL 1 / 5</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Biometrics -->
+                <div class="card bio-scanner">
+                    <div class="card-title" style="width: 100%;">Biometric Lock</div>
+                    
+                    <div class="fingerprint-container">
+                        <!-- SVG Fingerprint -->
+                        <svg class="fingerprint-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94s2.08-.87 2.08-1.94c0-3.77-3.25-6.83-7.25-6.83-2.84 0-5.44 1.58-6.61 4.03-.39.81-.59 1.76-.59 2.8 0 .78.07 2.01.67 3.61.1.26-.03.55-.29.64-.26.1-.55-.03-.64-.29-.49-1.31-.73-2.6-.73-3.96 0-1.2.23-2.29.68-3.24 1.33-2.79 4.28-4.6 7.51-4.6 4.55 0 8.25 3.51 8.25 7.83 0 1.62-1.38 2.94-3.08 2.94s-3.08-1.32-3.08-2.94c0-1.07-.93-1.94-2.08-1.94s-2.08.87-2.08 1.94c0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z"/>
+                        </svg>
+                        <div class="scan-line"></div>
+                    </div>
+                    <div class="threat-sub" id="bio-status" style="color: var(--success);">IDENTITY VERIFIED</div>
+                </div>
+            </section>
+
+            <!-- Middle: Firewall & Logs -->
+            <section class="mid-grid">
+                <!-- Firewall Switches -->
+                <div class="card">
+                    <div class="card-title">Firewall Configuration</div>
+                    <div class="switch-grid">
+                        <div class="fw-switch">
+                            <span class="switch-label">PORT 80 (HTTP)</span>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="fw-switch">
+                            <span class="switch-label">PORT 443 (HTTPS)</span>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="fw-switch">
+                            <span class="switch-label">PORT 22 (SSH)</span>
+                            <label class="toggle">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="fw-switch">
+                            <span class="switch-label">INBOUND ICMP</span>
+                            <label class="toggle">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Intrusion Log -->
+                <div class="card">
+                    <div class="card-title">Intrusion Log</div>
+                    <div class="log-container" id="security-log">
+                        <div class="log-entry safe"><span class="time">10:42:01</span> Login Success (Unit 734)</div>
+                        <div class="log-entry blocked"><span class="time">10:41:55</span> Blocked IP 192.168.x.44 (Brute Force)</div>
+                        <div class="log-entry safe"><span class="time">10:40:12</span> System Scan Complete</div>
+                        <div class="log-entry blocked"><span class="time">10:38:22</span> Port 22 Scan Attempt</div>
+                        <div class="log-entry safe"><span class="time">10:35:00</span> Key Rotation Successful</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom: Spectral Analysis -->
+            <section class="card waveform-container">
+                <div style="position: absolute; top: 10px; left: 15px; font-family: 'Orbitron'; color: var(--primary); font-size: 0.8rem; z-index: 5;">TRAFFIC SPECTRAL ANALYSIS</div>
+                <canvas id="wave-canvas"></canvas>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+
+        const email = localStorage.getItem('email')
+        document.getElementById('user').textContent = email
+        /* --- 1. Background Grid (Shared) --- */
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let width, height;
+        const gridSpeed = 0.5;
+        let offset = 0;
+        const bgParticles = [];
+
+        function resizeBg() {
+            width = bgCanvas.width = window.innerWidth;
+            height = bgCanvas.height = window.innerHeight;
+        }
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 1;
+                this.speedY = Math.random() * -1 - 0.2;
+                this.opacity = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.9 ? '#ff2a6d' : '#00f3ff'; // Red or Cyan
+            }
+            update() { this.y += this.speedY; if (this.y < 0) this.reset(); }
+            draw() {
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fillStyle = this.color;
+                bgCtx.globalAlpha = this.opacity;
+                bgCtx.fill();
+                bgCtx.globalAlpha = 1;
+            }
+        }
+        for(let i=0; i<70; i++) bgParticles.push(new Particle());
+
+        function drawGrid() {
+            const horizon = height * 0.4;
+            bgCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+            bgCtx.lineWidth = 1;
+            const centerX = width / 2;
+            bgCtx.beginPath();
+            offset = (offset + gridSpeed) % 40;
+            for (let y = horizon; y < height; y += (y - horizon) * 0.1 + 2) {
+                if(y + offset * 0.2 < height) {
+                    bgCtx.moveTo(0, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                    bgCtx.lineTo(width, y + (offset * ((y - horizon)/(height-horizon)) * 4));
+                }
+            }
+            for (let x = -width; x < width * 2; x += 80) {
+                 bgCtx.moveTo(centerX + (x - centerX) * 0.1, horizon);
+                 bgCtx.lineTo(x, height);
+            }
+            bgCtx.stroke();
+        }
+        function animateBg() {
+            bgCtx.fillStyle = '#050510';
+            bgCtx.fillRect(0, 0, width, height);
+            drawGrid();
+            bgParticles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateBg);
+        }
+        window.addEventListener('resize', resizeBg);
+        resizeBg();
+        animateBg();
+
+
+        /* --- 2. Threat Meter Logic --- */
+        const gaugeFill = document.getElementById('gauge-fill');
+        const threatText = document.getElementById('threat-text');
+        const threatSub = document.querySelector('.threat-sub');
+        
+        // Simulate Threat Level Change
+        setInterval(() => {
+            const rand = Math.random();
+            if (rand > 0.9) {
+                // High Alert
+                gaugeFill.style.transform = 'rotate(45deg)'; // Rotate fill
+                gaugeFill.style.borderTopColor = 'var(--danger)';
+                threatText.innerText = "ELEVATED";
+                threatText.style.color = "var(--danger)";
+                threatText.style.textShadow = "0 0 10px var(--danger)";
+                threatSub.innerText = "LEVEL 4 / 5";
+            } else {
+                // Secure
+                gaugeFill.style.transform = 'rotate(-135deg)'; // Hide fill (simplified logic for demo)
+                gaugeFill.style.borderTopColor = 'var(--success)';
+                threatText.innerText = "SECURE";
+                threatText.style.color = "var(--success)";
+                threatText.style.textShadow = "0 0 10px var(--success)";
+                threatSub.innerText = "LEVEL 1 / 5";
+            }
+        }, 5000); // Change every 5 seconds
+
+
+        /* --- 3. Waveform Visualizer --- */
+        const waveCanvas = document.getElementById('wave-canvas');
+        const waveCtx = waveCanvas.getContext('2d');
+        let waveW, waveH;
+        let waveOffset = 0;
+
+        function resizeWave() {
+            waveW = waveCanvas.width = document.querySelector('.waveform-container').offsetWidth;
+            waveH = waveCanvas.height = document.querySelector('.waveform-container').offsetHeight;
+        }
+
+        function animateWave() {
+            waveCtx.clearRect(0, 0, waveW, waveH);
+            waveCtx.lineWidth = 2;
+            waveCtx.strokeStyle = '#00f3ff';
+            waveCtx.beginPath();
+
+            const amplitude = 30;
+            const frequency = 0.02;
+            const centerY = waveH / 2;
+
+            for (let x = 0; x < waveW; x++) {
+                // Combine two sine waves for "techy" look
+                const y = centerY + 
+                          Math.sin(x * frequency + waveOffset) * amplitude +
+                          Math.sin(x * frequency * 2.5 + waveOffset * 2) * (amplitude / 2);
+                
+                if (x === 0) waveCtx.moveTo(x, y);
+                else waveCtx.lineTo(x, y);
+            }
+            waveCtx.stroke();
+            
+            // Draw a secondary "ghost" wave
+            waveCtx.strokeStyle = 'rgba(188, 19, 254, 0.3)';
+            waveCtx.beginPath();
+            for (let x = 0; x < waveW; x++) {
+                const y = centerY + 
+                          Math.sin(x * 0.01 - waveOffset) * 40;
+                if (x === 0) waveCtx.moveTo(x, y);
+                else waveCtx.lineTo(x, y);
+            }
+            waveCtx.stroke();
+
+            waveOffset += 0.05;
+            requestAnimationFrame(animateWave);
+        }
+        
+        window.addEventListener('resize', resizeWave);
+        setTimeout(() => { resizeWave(); animateWave(); }, 100);
+
+
+        /* --- 4. Live Intrusion Log Generator --- */
+        const logContainer = document.getElementById('security-log');
+        const events = [
+            { text: "Packet Filter Applied", type: "safe" },
+            { text: "Blocked IP 10.20.x.99", type: "blocked" },
+            { text: "Handshake Verified", type: "safe" },
+            { text: "Unauthorized Port Access", type: "blocked" },
+            { text: "Ping Flood Detected", type: "blocked" },
+            { text: "Routine Checksum", type: "safe" }
+        ];
+
+        function addLog() {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const event = events[Math.floor(Math.random() * events.length)];
+            
+            const div = document.createElement('div');
+            div.className = `log-entry ${event.type}`;
+            div.innerHTML = `<span class="time">${timeStr}</span> ${event.text}`;
+            
+            logContainer.prepend(div); // Add to top
+            
+            // Limit list size
+            if(logContainer.children.length > 20) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        setInterval(addLog, 2500); // New log every 2.5s
+
+    </script>
+</body>
+</html>
